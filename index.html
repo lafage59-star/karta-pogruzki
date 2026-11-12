@@ -25,7 +25,8 @@
   --weak: #f6d23a;            /* < 0.97 — weak market (yellow) */
   --dead: #8fd0f5;            /* dead market (light blue) */
   --strong-ink: #b4241b; --norm-ink: #b35f0c; --weak-ink: #8a6d00;
-  --nodata: #efeeea;
+  --nodata: #8b5a2b;          /* no loads at all (brown) */
+  --low-bg: #e6cfae; --low-ln: #8b5a2b;   /* little data: brown hatch */
   --good-ink: #1f5fae;
   --bad-ink: #c23a39;
   --f-display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
@@ -36,13 +37,13 @@
   :root:not([data-theme="light"]) {
     --bg: #121211; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e87; --line: #33332f;
     --chip: #262624; --accent: #f0a63a; --strong: #e5534b; --norm: #e8892c; --weak: #e3c133;
-    --dead: #5fb2e0; --strong-ink: #f08a84; --norm-ink: #f2a95e; --weak-ink: #ecd36a; --nodata: #222220; --good-ink: #7fb2f0; --bad-ink: #f08a89; color-scheme: dark;
+    --dead: #5fb2e0; --strong-ink: #f08a84; --norm-ink: #f2a95e; --weak-ink: #ecd36a; --nodata: #7a4f27; --low-bg: #4a3220; --low-ln: #b07a46; --good-ink: #7fb2f0; --bad-ink: #f08a89; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #121211; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e87; --line: #33332f;
   --chip: #262624; --accent: #f0a63a; --strong: #e5534b; --norm: #e8892c; --weak: #e3c133;
-  --dead: #5fb2e0; --strong-ink: #f08a84; --norm-ink: #f2a95e; --weak-ink: #ecd36a; --nodata: #222220; --good-ink: #7fb2f0; --bad-ink: #f08a89; color-scheme: dark;
+  --dead: #5fb2e0; --strong-ink: #f08a84; --norm-ink: #f2a95e; --weak-ink: #ecd36a; --nodata: #7a4f27; --low-bg: #4a3220; --low-ln: #b07a46; --good-ink: #7fb2f0; --bad-ink: #f08a89; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
@@ -272,8 +273,8 @@ tbody tr { cursor: pointer; }
     const c = d3.lab(fill); return c.l > 58 ? '#16171a' : '#f6f6f3';
   }
   function paint() {
-    defs.select('.hatch-low-bg').attr('fill', css('--nodata'));
-    defs.select('.hatch-low-ln').attr('stroke', css('--line'));
+    defs.select('.hatch-low-bg').attr('fill', css('--low-bg'));
+    defs.select('.hatch-low-ln').attr('stroke', css('--low-ln'));
     const sc = scale();
     const fillOf = ab => {
       const c = cell(ab);
@@ -286,7 +287,7 @@ tbody tr { cursor: pointer; }
       .classed('sel', d => BYNAME[d.properties.name] === sel);
     labels.attr('fill', d => {
       const f = fillOf(BYNAME[d.properties.name]);
-      return f.startsWith('url') || f === css('--nodata') ? css('--ink-2') : inkOn(f);
+      return f.startsWith('url') ? css('--ink') : inkOn(f);
     });
     shapes.filter('.sel').raise();
     legend(sc);
@@ -298,7 +299,7 @@ tbody tr { cursor: pointer; }
     const el = document.getElementById('legend');
     const sw = (c, t) => `<span class="sw"><i style="background:${css(c)}"></i>${t}</span>`;
     el.innerHTML = sw('--strong', sc.legend[0]) + sw('--norm', sc.legend[1]) + sw('--weak', sc.legend[2]) + sw('--dead', 'Мёртвый рынок') +
-      (month === -1 && metric !== 'n' ? `<span class="sw"><i style="background:repeating-linear-gradient(45deg, ${css('--line')} 0 2px, ${css('--nodata')} 2px 4.2px)"></i>Мало данных (&lt;30 грузов)</span>` : '') +
+      (month === -1 && metric !== 'n' ? `<span class="sw"><i style="background:repeating-linear-gradient(45deg, ${css('--low-ln')} 0 2px, ${css('--low-bg')} 2px 4.2px)"></i>Мало данных (&lt;30 грузов)</span>` : '') +
       sw('--nodata', 'Грузов нет');
   }
 
