@@ -20,11 +20,11 @@
   --line: #dddcd6;
   --chip: #ecebe6;
   --accent: #b86e00;          /* amber: selection / route-sign accent */
-  --neg: #e34948;             /* below market */
-  --mid: #e4e3de;             /* market level */
-  --pos: #2a78d6;             /* above market */
-  --dead: #8b8c90;
-  --dead-2: #b9bab9;
+  --strong: #e0362c;          /* index ≥ 1.03 — strong market (red) */
+  --norm: #f28c28;            /* 0.97–1.03 — market level (orange) */
+  --weak: #f6d23a;            /* < 0.97 — weak market (yellow) */
+  --dead: #8fd0f5;            /* dead market (light blue) */
+  --strong-ink: #b4241b; --norm-ink: #b35f0c; --weak-ink: #8a6d00;
   --nodata: #efeeea;
   --good-ink: #1f5fae;
   --bad-ink: #c23a39;
@@ -35,14 +35,14 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #121211; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e87; --line: #33332f;
-    --chip: #262624; --accent: #f0a63a; --neg: #e66767; --mid: #3a3a37; --pos: #3987e5;
-    --dead: #6a6b6e; --dead-2: #45464a; --nodata: #222220; --good-ink: #7fb2f0; --bad-ink: #f08a89; color-scheme: dark;
+    --chip: #262624; --accent: #f0a63a; --strong: #e5534b; --norm: #e8892c; --weak: #e3c133;
+    --dead: #5fb2e0; --strong-ink: #f08a84; --norm-ink: #f2a95e; --weak-ink: #ecd36a; --nodata: #222220; --good-ink: #7fb2f0; --bad-ink: #f08a89; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #121211; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e87; --line: #33332f;
-  --chip: #262624; --accent: #f0a63a; --neg: #e66767; --mid: #3a3a37; --pos: #3987e5;
-  --dead: #6a6b6e; --dead-2: #45464a; --nodata: #222220; --good-ink: #7fb2f0; --bad-ink: #f08a89; color-scheme: dark;
+  --chip: #262624; --accent: #f0a63a; --strong: #e5534b; --norm: #e8892c; --weak: #e3c133;
+  --dead: #5fb2e0; --strong-ink: #f08a84; --norm-ink: #f2a95e; --weak-ink: #ecd36a; --nodata: #222220; --good-ink: #7fb2f0; --bad-ink: #f08a89; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
@@ -97,8 +97,8 @@ svg.map { width: 100%; height: auto; display: block; }
 .ph { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .back { font: 500 12px var(--f-body); background: none; border: 1px solid var(--line); color: var(--ink-2); border-radius: 6px; padding: 5px 9px; cursor: pointer; }
 .pill { font: 600 12px var(--f-body); border-radius: 999px; padding: 3px 9px; white-space: nowrap; border: 1px solid currentColor; }
-.pill.strong { color: var(--good-ink); } .pill.norm { color: var(--ink-2); } .pill.below { color: var(--accent); }
-.pill.weak { color: var(--bad-ink); } .pill.low { color: var(--ink-3); border-style: dashed; }
+.pill.strong { color: var(--strong-ink); } .pill.norm { color: var(--norm-ink); } .pill.below { color: var(--weak-ink); }
+.pill.weak { color: var(--weak-ink); } .pill.low { color: var(--ink-3); border-style: dashed; }
 .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .kpi { background: var(--chip); border-radius: 8px; padding: 8px 10px; min-width: 0; }
 .kpi .k { font-size: 11px; color: var(--ink-3); }
@@ -146,7 +146,7 @@ tbody tr { cursor: pointer; }
   <header>
     <div>
       <h1>Где грузиться: штаты США по месяцам</h1>
-      <p class="sub">Сколько платит каждый штат погрузки по сравнению с рынком в тот же месяц того же года. Синий — дороже рынка, красный — дешевле, штриховка — мёртвый рынок (грузов почти нет).</p>
+      <p class="sub">Сколько платит каждый штат погрузки по сравнению с рынком в тот же месяц того же года. Красный — сильный маркет (платит выше рынка), оранжевый — на уровне рынка, жёлтый — слабый, голубой — мёртвый рынок (грузов почти нет).</p>
     </div>
     <div class="meta" id="meta"></div>
   </header>
@@ -209,6 +209,8 @@ tbody tr { cursor: pointer; }
   let sel = null;
 
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  // index → status colour: red strong, orange market level, yellow weak
+  const idxColor = v => v >= 1.03 ? css('--strong') : v >= 0.97 ? css('--norm') : css('--weak');
 
   // ---------- value for current view ----------
   function cell(ab, m = month) {
@@ -226,11 +228,9 @@ tbody tr { cursor: pointer; }
   }
   function scale() {
     if (metric === 'idx') {
-      const neg = css('--neg'), mid = css('--mid'), pos = css('--pos');
-      const s = d3.scaleLinear().domain([0.8, 1, 1.2]).range([neg, mid, pos]).interpolate(d3.interpolateLab).clamp(true);
-      return {f: s, lo: 0.8, hi: 1.2, ticks: ['0,80', '1,00', '1,20'], label: v => fmt2(v)};
+      return {f: idxColor, lo: 0.8, hi: 1.2, ticks: [], label: v => fmt2(v)};
     }
-    const blues = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
+    const blues = ['#ece6f7', '#d3c6ef', '#b5a2e3', '#9480d6', '#6f5bc4', '#5243a3', '#36297a'];
     const dark = document.documentElement.dataset.theme === 'dark' ||
       (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     const ramp = dark ? blues.slice().reverse() : blues;
@@ -258,7 +258,7 @@ tbody tr { cursor: pointer; }
     p.append('rect').attr('width', 6).attr('height', 6).attr('class', id + '-bg');
     p.append('line').attr('x1', 0).attr('y1', 0).attr('x2', 0).attr('y2', 6).attr('stroke-width', 2.4).attr('class', id + '-ln');
   }
-  pattern('hatch-dead'); pattern('hatch-low');
+  pattern('hatch-low');
   const states = topojson.feature(GEO, GEO.objects.states).features;
   const path = d3.geoPath();
   const g = svg.append('g');
@@ -280,15 +280,13 @@ tbody tr { cursor: pointer; }
     const c = d3.lab(fill); return c.l > 58 ? '#16171a' : '#f6f6f3';
   }
   function paint() {
-    defs.select('.hatch-dead-bg').attr('fill', css('--dead-2'));
-    defs.select('.hatch-dead-ln').attr('stroke', css('--dead'));
     defs.select('.hatch-low-bg').attr('fill', css('--nodata'));
     defs.select('.hatch-low-ln').attr('stroke', css('--line'));
     const sc = scale();
     const fillOf = ab => {
       const c = cell(ab);
       if (c.kind === 'none') return css('--nodata');
-      if (c.kind === 'dead') return 'url(#hatch-dead)';
+      if (c.kind === 'dead') return css('--dead');
       if (c.kind === 'low') return 'url(#hatch-low)';
       return sc.f(c.v);
     };
@@ -306,18 +304,17 @@ tbody tr { cursor: pointer; }
   }
   function legend(sc) {
     const el = document.getElementById('legend');
-    let grad;
-    if (metric === 'idx') {
-      const stops = d3.range(0, 1.0001, 0.1).map(t => sc.f(sc.lo + t * (sc.hi - sc.lo)) + ' ' + (t * 100) + '%');
-      grad = `linear-gradient(90deg, ${stops.join(',')})`;
-    } else {
+    let grad = '';
+    if (metric !== 'idx') {
       const n = sc.ramp.length;
       grad = `linear-gradient(90deg, ${sc.ramp.map((c, i) => `${c} ${i / n * 100}%, ${c} ${(i + 1) / n * 100}%`).join(',')})`;
     }
-    el.innerHTML = `
-      <span class="ramp"><span>${sc.ticks[0]}</span><i style="background:${grad}"></i><span>${sc.ticks[2]}</span></span>
-      ${metric === 'idx' ? '<span>1,00 = как рынок</span>' : ''}
-      <span class="sw"><i style="background:repeating-linear-gradient(45deg, ${css('--dead')} 0 2px, ${css('--dead-2')} 2px 4.2px)"></i>Мёртвый рынок</span>
+    el.innerHTML = (metric === 'idx'
+      ? `<span class="sw"><i style="background:${css('--strong')}"></i>Сильный (индекс ≥ 1,03)</span>
+         <span class="sw"><i style="background:${css('--norm')}"></i>Норма (0,97–1,03)</span>
+         <span class="sw"><i style="background:${css('--weak')}"></i>Слабый (&lt; 0,97)</span>`
+      : `<span class="ramp"><span>${sc.ticks[0]}</span><i style="background:${grad}"></i><span>${sc.ticks[2]}</span></span>`) + `
+      <span class="sw"><i style="background:${css('--dead')}"></i>Мёртвый рынок</span>
       ${month === -1 && metric !== 'n' ? `<span class="sw"><i style="background:repeating-linear-gradient(45deg, ${css('--line')} 0 2px, ${css('--nodata')} 2px 4.2px)"></i>Мало данных (&lt;30 грузов)</span>` : ''}
       <span class="sw"><i style="background:${css('--nodata')}"></i>Грузов нет</span>`;
   }
@@ -354,9 +351,8 @@ tbody tr { cursor: pointer; }
   // ---------- panel ----------
   const panel = document.getElementById('panel');
   function monthCell(c) {
-    if (c.dead) return {bg: `repeating-linear-gradient(45deg, ${css('--dead')} 0 2px, ${css('--dead-2')} 2px 4.2px)`, ink: css('--surface'), t: '—'};
-    const sc = d3.scaleLinear().domain([0.8, 1, 1.2]).range([css('--neg'), css('--mid'), css('--pos')]).interpolate(d3.interpolateLab).clamp(true);
-    const f = sc(c.idx); return {bg: f, ink: inkOn(f), t: fmt2(c.idx)};
+    if (c.dead) return {bg: css('--dead'), ink: inkOn(css('--dead')), t: '—'};
+    const f = idxColor(c.idx); return {bg: f, ink: inkOn(f), t: fmt2(c.idx)};
   }
   function monthsWhere(s, pred) { return s.months.map((c, i) => pred(c) ? MON[i] : null).filter(Boolean).join(' ') || '—'; }
   function statePanel(ab) {
