@@ -222,25 +222,17 @@ tbody tr { cursor: pointer; }
       return {kind: 'val', v: metric === 'idx' ? s.idx : s.rpm, n: s.n};
     }
     const c = s.months[m];
-    if (metric === 'n') return c.n ? {kind: 'val', v: c.n, n: c.n} : {kind: 'dead', n: 0};
     if (c.dead) return {kind: 'dead', n: c.n};
+    if (metric === 'n') return {kind: 'val', v: c.n, n: c.n};
     return {kind: 'val', v: metric === 'idx' ? c.idx : c.rpm, n: c.n};
   }
+  // three tiers for every view: red = high, orange = middle, yellow = low
+  function tiers(hi, mid) { return v => v >= hi ? css('--strong') : v >= mid ? css('--norm') : css('--weak'); }
   function scale() {
-    if (metric === 'idx') {
-      return {f: idxColor, lo: 0.8, hi: 1.2, ticks: [], label: v => fmt2(v)};
-    }
-    const blues = ['#ece6f7', '#d3c6ef', '#b5a2e3', '#9480d6', '#6f5bc4', '#5243a3', '#36297a'];
-    const dark = document.documentElement.dataset.theme === 'dark' ||
-      (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
-    const ramp = dark ? blues.slice().reverse() : blues;
-    if (metric === 'rpm') {
-      const s = d3.scaleQuantize().domain([2.3, 3.5]).range(ramp);
-      return {f: s, lo: 2.3, hi: 3.5, ticks: ['$2,30', '$2,90', '$3,50'], label: money, ramp};
-    }
-    const max = month === -1 ? 340 : 45;
-    const s = d3.scaleQuantize().domain([0, max]).range(ramp);
-    return {f: s, lo: 0, hi: max, ticks: ['0', String(max / 2), String(max) + '+'], label: v => int(v), ramp};
+    if (metric === 'idx') return {f: idxColor, legend: ['Сильный (индекс ≥ 1,03)', 'Норма (0,97–1,03)', 'Слабый (&lt; 0,97)']};
+    if (metric === 'rpm') return {f: tiers(3.0, 2.7), legend: ['Высокая ставка (от $3,00)', 'Средняя ($2,70–2,99)', 'Низкая (до $2,70)']};
+    if (month === -1) return {f: tiers(120, 50), legend: ['Много грузов (от 120)', 'Средне (50–119)', 'Мало (до 50)']};
+    return {f: tiers(12, 7), legend: ['Много грузов (от 12)', 'Средне (7–11)', 'Мало (4–6)']};
   }
   function valText(c) {
     if (c.kind === 'none') return 'грузов нет';
@@ -304,19 +296,10 @@ tbody tr { cursor: pointer; }
   }
   function legend(sc) {
     const el = document.getElementById('legend');
-    let grad = '';
-    if (metric !== 'idx') {
-      const n = sc.ramp.length;
-      grad = `linear-gradient(90deg, ${sc.ramp.map((c, i) => `${c} ${i / n * 100}%, ${c} ${(i + 1) / n * 100}%`).join(',')})`;
-    }
-    el.innerHTML = (metric === 'idx'
-      ? `<span class="sw"><i style="background:${css('--strong')}"></i>Сильный (индекс ≥ 1,03)</span>
-         <span class="sw"><i style="background:${css('--norm')}"></i>Норма (0,97–1,03)</span>
-         <span class="sw"><i style="background:${css('--weak')}"></i>Слабый (&lt; 0,97)</span>`
-      : `<span class="ramp"><span>${sc.ticks[0]}</span><i style="background:${grad}"></i><span>${sc.ticks[2]}</span></span>`) + `
-      <span class="sw"><i style="background:${css('--dead')}"></i>Мёртвый рынок</span>
-      ${month === -1 && metric !== 'n' ? `<span class="sw"><i style="background:repeating-linear-gradient(45deg, ${css('--line')} 0 2px, ${css('--nodata')} 2px 4.2px)"></i>Мало данных (&lt;30 грузов)</span>` : ''}
-      <span class="sw"><i style="background:${css('--nodata')}"></i>Грузов нет</span>`;
+    const sw = (c, t) => `<span class="sw"><i style="background:${css(c)}"></i>${t}</span>`;
+    el.innerHTML = sw('--strong', sc.legend[0]) + sw('--norm', sc.legend[1]) + sw('--weak', sc.legend[2]) + sw('--dead', 'Мёртвый рынок') +
+      (month === -1 && metric !== 'n' ? `<span class="sw"><i style="background:repeating-linear-gradient(45deg, ${css('--line')} 0 2px, ${css('--nodata')} 2px 4.2px)"></i>Мало данных (&lt;30 грузов)</span>` : '') +
+      sw('--nodata', 'Грузов нет');
   }
 
   // ---------- tooltip ----------
